@@ -1,9 +1,9 @@
 {
   "name": "english_shavian",
-  "bcp47": "en-Shaw",
+  "bcp47": "en-shaw",
   "rightToLeft": false,
   "ligatures": true,
-  "noLazyMode": false,
+  "noLazyMode": true,
   "orderedByFrequency": true,
   "words": [
     "𐑞",
