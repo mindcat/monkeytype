@@ -3,7 +3,7 @@
   "bcp47": "en-Shaw",
   "rightToLeft": false,
   "ligatures": true,
-  "noLazyMode": true,
+  "noLazyMode": false,
   "orderedByFrequency": true,
   "words": [
     "𐑞",
