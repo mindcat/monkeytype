@@ -2,7 +2,7 @@
   "name": "english_shavian",
   "bcp47": "en-Shaw",
   "rightToLeft": false,
-  "ligatures": false,
+  "ligatures": true,
   "noLazyMode": true,
   "orderedByFrequency": true,
   "words": [
