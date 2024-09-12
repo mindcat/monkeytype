@@ -16,11 +16,13 @@ import { isAuthenticated } from "../firebase";
 import { debounce } from "throttle-debounce";
 import Ape from "../ape";
 import * as Loader from "../elements/loader";
+// @ts-expect-error TODO: update slim-select
 import SlimSelect from "slim-select";
 import * as TestState from "../test/test-state";
 import AnimatedModal, { ShowOptions } from "../utils/animated-modal";
 import * as TestLogic from "../test/test-logic";
 import { createErrorMessage } from "../utils/misc";
+import { QuoteLength } from "@monkeytype/contracts/schemas/configs";
 
 const searchServiceCache: Record<string, SearchService<MonkeyTypes.Quote>> = {};
 
@@ -38,7 +40,7 @@ function getSearchService<T>(
 
   const newSearchService = buildSearchService<T>(data, textExtractor);
   searchServiceCache[language] =
-    newSearchService as unknown as typeof searchServiceCache[typeof language];
+    newSearchService as unknown as (typeof searchServiceCache)[typeof language];
 
   return newSearchService;
 }
@@ -207,7 +209,7 @@ async function updateResults(searchText: string): Promise<void> {
 
   const searchResults = modal
     .getModal()
-    .querySelectorAll(".searchResult") as NodeListOf<HTMLElement>;
+    .querySelectorAll<HTMLElement>(".searchResult");
   for (const searchResult of searchResults) {
     const quoteId = parseInt(searchResult.dataset["quoteId"] as string);
     searchResult
@@ -323,11 +325,11 @@ function hide(clearChain = false): void {
 function apply(val: number): void {
   if (isNaN(val)) {
     val = parseInt(
-      (document.getElementById("searchBox") as HTMLInputElement).value as string
+      (document.getElementById("searchBox") as HTMLInputElement).value
     );
   }
   if (val !== null && !isNaN(val) && val >= 0) {
-    UpdateConfig.setQuoteLength(-2 as SharedTypes.Config.QuoteLength, false);
+    UpdateConfig.setQuoteLength(-2 as QuoteLength, false);
     TestState.setSelectedQuoteId(val);
     ManualRestart.set();
   } else {
@@ -418,8 +420,11 @@ async function setup(modalEl: HTMLElement): Promise<void> {
     .querySelector(".goToQuoteSubmit")
     ?.addEventListener("click", async (e) => {
       Loader.show();
+      const getSubmissionEnabled = await Ape.quotes.isSubmissionEnabled();
       const isSubmissionEnabled =
-        (await Ape.quotes.isSubmissionEnabled()).data?.isEnabled ?? false;
+        (getSubmissionEnabled.status === 200 &&
+          getSubmissionEnabled.body.data?.isEnabled) ??
+        false;
       Loader.hide();
       if (!isSubmissionEnabled) {
         Notifications.add(

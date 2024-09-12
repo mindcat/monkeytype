@@ -5,7 +5,6 @@ import * as TagController from "../../controllers/tag-controller";
 import Config from "../../config";
 import * as PaceCaret from "../../test/pace-caret";
 import { isAuthenticated } from "../../firebase";
-import AnimatedModal from "../../utils/animated-modal";
 
 const subgroup: MonkeyTypes.CommandsSubgroup = {
   title: "Change tags...",
@@ -41,12 +40,7 @@ function update(): void {
       icon: "fa-plus",
       shouldFocusTestUI: false,
       exec: ({ commandlineModal }): void => {
-        EditTagsPopup.show(
-          "add",
-          undefined,
-          undefined,
-          commandlineModal as AnimatedModal
-        );
+        EditTagsPopup.show("add", undefined, undefined, commandlineModal);
       },
     });
     return;
@@ -56,7 +50,7 @@ function update(): void {
     display: `Clear tags`,
     icon: "fa-times",
     sticky: true,
-    exec: (): void => {
+    exec: async (): Promise<void> => {
       const snapshot = DB.getSnapshot();
       if (!snapshot) return;
 
@@ -67,6 +61,13 @@ function update(): void {
       });
 
       DB.setSnapshot(snapshot);
+      if (
+        Config.paceCaret === "average" ||
+        Config.paceCaret === "tagPb" ||
+        Config.paceCaret === "daily"
+      ) {
+        await PaceCaret.init();
+      }
       void ModesNotice.update();
       TagController.saveActiveToLocalStorage();
     },
@@ -85,12 +86,15 @@ function update(): void {
       },
       exec: async (): Promise<void> => {
         TagController.toggle(tag._id);
-        void ModesNotice.update();
 
-        if (Config.paceCaret === "average") {
+        if (
+          Config.paceCaret === "average" ||
+          Config.paceCaret === "tagPb" ||
+          Config.paceCaret === "daily"
+        ) {
           await PaceCaret.init();
-          void ModesNotice.update();
         }
+        void ModesNotice.update();
       },
     });
   }
@@ -101,12 +105,7 @@ function update(): void {
     shouldFocusTestUI: false,
     opensModal: true,
     exec: ({ commandlineModal }): void => {
-      EditTagsPopup.show(
-        "add",
-        undefined,
-        undefined,
-        commandlineModal as AnimatedModal
-      );
+      EditTagsPopup.show("add", undefined, undefined, commandlineModal);
     },
   });
 }

@@ -133,18 +133,18 @@ export async function refresh(
         lts = layouts["qwerty"];
         layoutString = "default";
       } else {
-        lts = layouts[Config.layout as keyof typeof layouts];
+        lts = layouts[Config.layout];
         layoutString = Config.layout;
       }
     } else {
-      lts = layouts[Config.keymapLayout as keyof typeof layouts];
+      lts = layouts[Config.keymapLayout];
       layoutString = Config.keymapLayout;
     }
 
     const showTopRow =
       (TestWords.hasNumbers && Config.keymapMode === "next") ||
       Config.keymapShowTopRow === "always" ||
-      ((lts as typeof layouts["qwerty"]).keymapShowTopRow &&
+      ((lts as (typeof layouts)["qwerty"]).keymapShowTopRow &&
         Config.keymapShowTopRow !== "never");
 
     const isMatrix =

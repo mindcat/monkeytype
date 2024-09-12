@@ -5,7 +5,7 @@ import { join } from "path";
 import mjml2html from "mjml";
 import mustache from "mustache";
 import { recordEmail } from "../utils/prometheus";
-import { EmailTaskContexts, EmailType } from "../queues/email-queue";
+import type { EmailTaskContexts, EmailType } from "../queues/email-queue";
 import { isDevEnvironment } from "../utils/misc";
 
 type EmailMetadata = {
@@ -72,7 +72,7 @@ export async function init(): Promise<void> {
     Logger.success("Email client configuration verified");
   } catch (error) {
     transportInitialized = false;
-    Logger.error(error.message);
+    Logger.error(error.message as string);
     Logger.error("Failed to verify email client configuration.");
   }
 }
@@ -82,10 +82,10 @@ type MailResult = {
   message: string;
 };
 
-export async function sendEmail<M extends EmailType>(
+export async function sendEmail(
   templateName: EmailType,
   to: string,
-  data: EmailTaskContexts[M]
+  data: EmailTaskContexts[EmailType]
 ): Promise<MailResult> {
   if (!isInitialized()) {
     return {

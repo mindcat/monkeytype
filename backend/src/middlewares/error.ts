@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import Logger from "../utils/logger";
 import MonkeyError from "../utils/error";
 import { incrementBadAuth } from "./rate-limit";
-import { NextFunction, Response } from "express";
+import type { NextFunction, Response } from "express";
 import { MonkeyResponse, handleMonkeyResponse } from "../utils/monkey-response";
 import {
   recordClientErrorByVersion,
@@ -12,6 +12,7 @@ import {
 import { isDevEnvironment } from "../utils/misc";
 import { ObjectId } from "mongodb";
 import { version } from "../version";
+import { addLog } from "../dal/logs";
 
 type DBError = {
   _id: ObjectId;
@@ -67,16 +68,19 @@ async function errorHandlingMiddleware(
     ) {
       recordServerErrorByVersion(version);
 
-      const { uid, errorId } = monkeyResponse.data;
+      const { uid, errorId } = monkeyResponse.data as {
+        uid: string;
+        errorId: string;
+      };
 
       try {
-        await Logger.logToDb(
+        await addLog(
           "system_error",
           `${monkeyResponse.status} ${errorId} ${error.message} ${error.stack}`,
           uid
         );
         await db.collection<DBError>("errors").insertOne({
-          _id: errorId,
+          _id: new ObjectId(errorId),
           timestamp: Date.now(),
           status: monkeyResponse.status,
           uid,
@@ -88,7 +92,8 @@ async function errorHandlingMiddleware(
         });
       } catch (e) {
         Logger.error("Logging to db failed.");
-        Logger.error(e);
+        Logger.error(e.message as string);
+        console.error(e);
       }
     } else {
       Logger.error(`Error: ${error.message} Stack: ${error.stack}`);
@@ -98,13 +103,15 @@ async function errorHandlingMiddleware(
       delete monkeyResponse.data.errorId;
     }
 
-    return handleMonkeyResponse(monkeyResponse, res);
+    handleMonkeyResponse(monkeyResponse, res);
+    return;
   } catch (e) {
     Logger.error("Error handling middleware failed.");
-    Logger.error(e);
+    Logger.error(e.message as string);
+    console.error(e);
   }
 
-  return handleMonkeyResponse(
+  handleMonkeyResponse(
     new MonkeyResponse(
       "Something went really wrong, please contact support.",
       undefined,

@@ -1,4 +1,4 @@
-import _ from "lodash";
+import _, { omit } from "lodash";
 import uaparser from "ua-parser-js";
 
 //todo split this file into smaller util files (grouped by functionality)
@@ -51,7 +51,7 @@ type AgentLog = {
   device?: string;
 };
 
-export function buildAgentLog(req: MonkeyTypes.Request): AgentLog {
+export function buildAgentLog(req: TsRestRequest): AgentLog {
   const agent = uaparser(req.headers["user-agent"]);
 
   const agentLog: AgentLog = {
@@ -286,6 +286,7 @@ export function formatSeconds(
 
 export function intersect<T>(a: T[], b: T[], removeDuplicates = false): T[] {
   let t;
+  // eslint-disable-next-line @typescript-eslint/no-unused-expressions
   if (b.length > a.length) (t = b), (b = a), (a = t); // indexOf to loop over shorter
   const filtered = a.filter(function (e) {
     return b.includes(e);
@@ -305,4 +306,40 @@ export function stringToNumberOrDefault(
 
 export function isDevEnvironment(): boolean {
   return process.env["MODE"] === "dev";
+}
+
+/**
+ * convert database object into api object
+ * @param data  database object with `_id: ObjectId`
+ * @returns api object with `id: string`
+ */
+export function replaceObjectId<T extends { _id: ObjectId }>(
+  data: T
+): T & { _id: string };
+export function replaceObjectId<T extends { _id: ObjectId }>(
+  data: T | null
+): (T & { _id: string }) | null;
+export function replaceObjectId<T extends { _id: ObjectId }>(
+  data: T | null
+): (T & { _id: string }) | null {
+  if (data === null) {
+    return null;
+  }
+  const result = {
+    _id: data._id.toString(),
+    ...omit(data, "_id"),
+  } as T & { _id: string };
+  return result;
+}
+
+/**
+ * convert database objects into api objects
+ * @param data  database objects with `_id: ObjectId`
+ * @returns api objects with `id: string`
+ */
+export function replaceObjectIds<T extends { _id: ObjectId }>(
+  data: T[]
+): (T & { _id: string })[] {
+  if (data === undefined) return data;
+  return data.map((it) => replaceObjectId(it));
 }

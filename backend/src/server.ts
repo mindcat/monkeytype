@@ -12,7 +12,6 @@ import workers from "./workers";
 import Logger from "./utils/logger";
 import * as EmailClient from "./init/email-client";
 import { init as initFirebaseAdmin } from "./init/firebase-admin";
-
 import { createIndicies as leaderboardDbSetup } from "./dal/leaderboards";
 import { createIndicies as blocklistDbSetup } from "./dal/blocklist";
 
@@ -75,7 +74,7 @@ async function bootServer(port: number): Promise<Server> {
     recordServerVersion(version);
   } catch (error) {
     Logger.error("Failed to boot server");
-    Logger.error(error.message);
+    Logger.error(error.message as string);
     console.error(error);
     return process.exit(1);
   }
