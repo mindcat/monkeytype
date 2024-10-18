@@ -17,12 +17,14 @@ import Page from "./page";
 import { isAuthenticated } from "../firebase";
 import { areFunboxesCompatible } from "../test/funbox/funbox-validation";
 import { get as getTypingSpeedUnit } from "../utils/typing-speed-units";
-// @ts-expect-error TODO: update slim-select
 import SlimSelect from "slim-select";
 
 import * as Skeleton from "../utils/skeleton";
 import * as CustomBackgroundFilter from "../elements/custom-background-filter";
-import { ConfigValue } from "@monkeytype/contracts/schemas/configs";
+import {
+  ConfigValue,
+  CustomLayoutFluid,
+} from "@monkeytype/contracts/schemas/configs";
 
 type SettingsGroups<T extends ConfigValue> = Record<string, SettingsGroup<T>>;
 
@@ -427,6 +429,7 @@ function reset(): void {
   $(".pageSettings .section[data-config-name='fontFamily'] .buttons").empty();
   for (const select of document.querySelectorAll(".pageSettings select")) {
     //@ts-expect-error
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     select?.slim?.destroy?.();
   }
 }
@@ -559,7 +562,6 @@ async function fillSettingsPage(): Promise<void> {
   new SlimSelect({
     select: themeSelectLightElement,
     events: {
-      // @ts-expect-error TODO: update slim-select
       afterChange: (newVal): void => {
         UpdateConfig.setThemeLight(newVal[0]?.value as string);
       },
@@ -569,7 +571,6 @@ async function fillSettingsPage(): Promise<void> {
   new SlimSelect({
     select: themeSelectDarkElement,
     events: {
-      // @ts-expect-error TODO: update slim-select
       afterChange: (newVal): void => {
         UpdateConfig.setThemeDark(newVal[0]?.value as string);
       },
@@ -789,7 +790,7 @@ function refreshTagsSettingsSection(): void {
 function refreshPresetsSettingsSection(): void {
   if (isAuthenticated() && DB.getSnapshot()) {
     const presetsEl = $(".pageSettings .section.presets .presetsList").empty();
-    DB.getSnapshot()?.presets?.forEach((preset: MonkeyTypes.SnapshotPreset) => {
+    DB.getSnapshot()?.presets?.forEach((preset: DB.SnapshotPreset) => {
       presetsEl.append(`
       <div class="buttons preset" data-id="${preset._id}" data-name="${preset.name}" data-display="${preset.display}">
         <button class="presetButton">${preset.display}</button>
@@ -1062,7 +1063,7 @@ $(".pageSettings .section.tags").on(
   "click",
   ".tagsList .tag .tagButton",
   (e) => {
-    const target = e.currentTarget;
+    const target = e.currentTarget as HTMLElement;
     const tagid = $(target).parent(".tag").attr("data-id") as string;
     TagController.toggle(tagid);
     $(target).toggleClass("active");
@@ -1073,7 +1074,7 @@ $(".pageSettings .section.presets").on(
   "click",
   ".presetsList .preset .presetButton",
   async (e) => {
-    const target = e.currentTarget;
+    const target = e.currentTarget as HTMLElement;
     const presetid = $(target).parent(".preset").attr("data-id") as string;
     await PresetController.apply(presetid);
     void update();
@@ -1276,7 +1277,7 @@ $(
   void UpdateConfig.setCustomLayoutfluid(
     $(
       ".pageSettings .section[data-config-name='customLayoutfluid'] .inputAndButton input"
-    ).val() as MonkeyTypes.CustomLayoutFluidSpaces
+    ).val() as CustomLayoutFluid
   ).then((bool) => {
     if (bool) {
       Notifications.add("Custom layoutfluid saved", 1);
@@ -1291,7 +1292,7 @@ $(
     void UpdateConfig.setCustomLayoutfluid(
       $(
         ".pageSettings .section[data-config-name='customLayoutfluid'] .inputAndButton input"
-      ).val() as MonkeyTypes.CustomLayoutFluidSpaces
+      ).val() as CustomLayoutFluid
     ).then((bool) => {
       if (bool) {
         Notifications.add("Custom layoutfluid saved", 1);

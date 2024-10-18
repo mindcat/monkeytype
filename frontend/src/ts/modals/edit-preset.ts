@@ -16,6 +16,7 @@ import {
 } from "@monkeytype/contracts/schemas/presets";
 import { getPreset } from "../controllers/preset-controller";
 import defaultConfig from "../constants/default-config";
+import { Config as ConfigType } from "@monkeytype/contracts/schemas/configs";
 
 const state = {
   presetType: "full" as PresetType,
@@ -139,7 +140,9 @@ function addCheckboxListeners(): void {
     `#editPresetModal .modal .changePresetToCurrentCheckbox input`
   );
   presetToCurrentCheckbox.on("change", async () => {
-    state.setPresetToCurrent = presetToCurrentCheckbox.prop("checked");
+    state.setPresetToCurrent = presetToCurrentCheckbox.prop(
+      "checked"
+    ) as boolean;
     await updateEditPresetUI();
   });
 }
@@ -212,9 +215,9 @@ async function apply(): Promise<void> {
     "data-preset-id"
   ) as string;
 
-  const updateConfig: boolean = $("#editPresetModal .modal label input").prop(
+  const updateConfig = $("#editPresetModal .modal label input").prop(
     "checked"
-  );
+  ) as boolean;
 
   const snapshotPresets = DB.getSnapshot()?.presets ?? [];
 
@@ -277,12 +280,12 @@ async function apply(): Promise<void> {
         }),
         display: propPresetName,
         _id: response.body.data.presetId,
-      } as MonkeyTypes.SnapshotPreset);
+      } as DB.SnapshotPreset);
     }
   } else if (action === "edit") {
     const preset = snapshotPresets.filter(
-      (preset: MonkeyTypes.SnapshotPreset) => preset._id === presetId
-    )[0] as MonkeyTypes.SnapshotPreset;
+      (preset: DB.SnapshotPreset) => preset._id === presetId
+    )[0] as DB.SnapshotPreset;
     if (preset === undefined) {
       Notifications.add("Preset not found", -1);
       return;
@@ -327,13 +330,11 @@ async function apply(): Promise<void> {
       );
     } else {
       Notifications.add("Preset removed", 1);
-      snapshotPresets.forEach(
-        (preset: MonkeyTypes.SnapshotPreset, index: number) => {
-          if (preset._id === presetId) {
-            snapshotPresets.splice(index, 1);
-          }
+      snapshotPresets.forEach((preset: DB.SnapshotPreset, index: number) => {
+        if (preset._id === presetId) {
+          snapshotPresets.splice(index, 1);
         }
-      );
+      });
     }
   }
 
@@ -465,23 +466,22 @@ function getSettingGroup(configFieldName: string): PresetSettingGroup {
 }
 
 function getPartialConfigChanges(
-  configChanges: MonkeyTypes.ConfigChanges
-): MonkeyTypes.ConfigChanges {
-  const activeConfigChanges: MonkeyTypes.ConfigChanges = {};
+  configChanges: Partial<ConfigType>
+): Partial<ConfigType> {
+  const activeConfigChanges: Partial<ConfigType> = {};
   Object.keys(defaultConfig)
     .filter(
       (settingName) =>
         state.checkboxes.get(getSettingGroup(settingName)) === true
     )
     .forEach((settingName) => {
-      //@ts-expect-error this is fine
-      activeConfigChanges[settingName] =
-        //@ts-expect-error this is fine
-        configChanges[settingName] !== undefined
-          ? //@ts-expect-error this is fine
-            configChanges[settingName]
-          : //@ts-expect-error this is fine
-            defaultConfig[settingName];
+      const safeSettingName = settingName as keyof Partial<ConfigType>;
+      const newValue =
+        configChanges[safeSettingName] !== undefined
+          ? configChanges[safeSettingName]
+          : defaultConfig[safeSettingName];
+      // @ts-expect-error cant figure this one out, but it works
+      activeConfigChanges[safeSettingName] = newValue;
     });
   return activeConfigChanges;
 }
@@ -492,7 +492,7 @@ function getActiveSettingGroupsFromState(): ActiveSettingGroups {
       .map(([key]) => key)
   );
 }
-function getConfigChanges(): MonkeyTypes.ConfigChanges {
+function getConfigChanges(): Partial<ConfigType> {
   const activeConfigChanges =
     state.presetType === "partial"
       ? getPartialConfigChanges(Config.getConfigChanges())
@@ -500,9 +500,8 @@ function getConfigChanges(): MonkeyTypes.ConfigChanges {
   const tags = DB.getSnapshot()?.tags ?? [];
 
   const activeTagIds: string[] = tags
-    .filter((tag: MonkeyTypes.UserTag) => tag.active)
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    .map((tag: MonkeyTypes.UserTag) => tag._id);
+    .filter((tag) => tag.active)
+    .map((tag) => tag._id);
 
   const setTags: boolean =
     state.presetType === "full" || state.checkboxes.get("behavior") === true;

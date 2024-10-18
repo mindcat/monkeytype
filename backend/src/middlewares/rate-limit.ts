@@ -1,6 +1,6 @@
 import _ from "lodash";
 import MonkeyError from "../utils/error";
-import type { Response, NextFunction } from "express";
+import type { Response, NextFunction, Request } from "express";
 import { RateLimiterMemory } from "rate-limiter-flexible";
 import {
   rateLimit,
@@ -8,8 +8,6 @@ import {
   type Options,
 } from "express-rate-limit";
 import { isDevEnvironment } from "../utils/misc";
-import { EndpointMetadata } from "@monkeytype/contracts/schemas/api";
-import { TsRestRequestWithCtx } from "./auth";
 import { TsRestRequestHandler } from "@ts-rest/express";
 import {
   limits,
@@ -18,11 +16,17 @@ import {
   Window,
 } from "@monkeytype/contracts/rate-limit/index";
 import statuses from "../constants/monkey-status-codes";
+import { getMetadata } from "./utility";
+import {
+  ExpressRequestWithContext,
+  TsRestRequestWithContext,
+} from "../api/types";
+import { AppRoute, AppRouter } from "@ts-rest/core";
 
 export const REQUEST_MULTIPLIER = isDevEnvironment() ? 100 : 1;
 
 export const customHandler = (
-  req: MonkeyTypes.ExpressRequestWithContext,
+  req: ExpressRequestWithContext,
   _res: Response,
   _next: NextFunction,
   _options: Options
@@ -36,7 +40,7 @@ export const customHandler = (
   throw new MonkeyError(429, "Request limit reached, please try again later.");
 };
 
-const getKey = (req: MonkeyTypes.Request, _res: Response): string => {
+const getKey = (req: Request, _res: Response): string => {
   return (
     (req.headers["cf-connecting-ip"] as string) ||
     (req.headers["x-forwarded-for"] as string) ||
@@ -45,7 +49,10 @@ const getKey = (req: MonkeyTypes.Request, _res: Response): string => {
   );
 };
 
-const getKeyWithUid = (req: MonkeyTypes.Request, _res: Response): string => {
+const getKeyWithUid = (
+  req: ExpressRequestWithContext,
+  _res: Response
+): string => {
   const uid = req?.ctx?.decodedToken?.uid;
   const useUid = uid !== undefined && uid !== "";
 
@@ -92,12 +99,11 @@ export function rateLimitRequest<
   T extends AppRouter | AppRoute
 >(): TsRestRequestHandler<T> {
   return async (
-    req: TsRestRequestWithCtx,
+    req: TsRestRequestWithContext,
     res: Response,
     next: NextFunction
   ): Promise<void> => {
-    const rateLimit = (req.tsRestRoute["metadata"] as EndpointMetadata)
-      ?.rateLimit;
+    const rateLimit = getMetadata(req).rateLimit;
     if (rateLimit === undefined) {
       next();
       return;
@@ -148,7 +154,7 @@ const badAuthRateLimiter = new RateLimiterMemory({
 });
 
 export async function badAuthRateLimiterHandler(
-  req: MonkeyTypes.Request,
+  req: ExpressRequestWithContext,
   res: Response,
   next: NextFunction
 ): Promise<void> {
@@ -178,7 +184,7 @@ export async function badAuthRateLimiterHandler(
 }
 
 export async function incrementBadAuth(
-  req: MonkeyTypes.Request,
+  req: ExpressRequestWithContext,
   res: Response,
   status: number
 ): Promise<void> {

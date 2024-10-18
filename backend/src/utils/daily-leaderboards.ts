@@ -1,7 +1,7 @@
 import _, { omit } from "lodash";
 import * as RedisClient from "../init/redis";
 import LaterQueue from "../queues/later-queue";
-import { getCurrentDayTimestamp, matchesAPattern, kogascore } from "./misc";
+import { matchesAPattern, kogascore } from "./misc";
 import {
   Configuration,
   ValidModeRule,
@@ -12,6 +12,7 @@ import {
 } from "@monkeytype/contracts/schemas/leaderboards";
 import MonkeyError from "./error";
 import { Mode, Mode2 } from "@monkeytype/contracts/schemas/shared";
+import { getCurrentDayTimestamp } from "@monkeytype/util/date-and-time";
 
 const dailyLeaderboardNamespace = "monkeytype:dailyleaderboard";
 const scoresNamespace = `${dailyLeaderboardNamespace}:scores`;
@@ -74,7 +75,8 @@ export class DailyLeaderboard {
 
     const resultScore = kogascore(entry.wpm, entry.acc, entry.timestamp);
 
-    // @ts-expect-error
+    // @ts-expect-error we are doing some weird file to function mapping, thats why its any
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     const rank = (await connection.addResult(
       2,
       leaderboardScoresKey,
@@ -120,15 +122,16 @@ export class DailyLeaderboard {
     const { leaderboardScoresKey, leaderboardResultsKey } =
       this.getTodaysLeaderboardKeys();
 
-    // @ts-expect-error
-    const [results]: string[][] = await connection.getResults(
+    // @ts-expect-error we are doing some weird file to function mapping, thats why its any
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    const [results] = (await connection.getResults(
       2,
       leaderboardScoresKey,
       leaderboardResultsKey,
       minRank,
       maxRank,
       "false"
-    );
+    )) as string[][];
 
     if (results === undefined) {
       throw new Error(
@@ -198,7 +201,7 @@ export class DailyLeaderboard {
       count: count ?? 0,
       rank: rank + 1,
       entry: {
-        ...JSON.parse(result ?? "null"),
+        ...(JSON.parse(result ?? "null") as LeaderboardEntry),
       },
     };
   }
@@ -213,7 +216,8 @@ export async function purgeUserFromDailyLeaderboards(
     return;
   }
 
-  // @ts-expect-error
+  // @ts-expect-error we are doing some weird file to function mapping, thats why its any
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   await connection.purgeResults(0, uid, dailyLeaderboardNamespace);
 }
 

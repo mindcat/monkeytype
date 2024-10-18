@@ -2,17 +2,16 @@ import Ape from "../ape";
 import Config from "../config";
 import * as Loader from "../elements/loader";
 import * as Notifications from "../elements/notifications";
-import QuotesController from "../controllers/quotes-controller";
+import QuotesController, { Quote } from "../controllers/quotes-controller";
 import * as CaptchaController from "../controllers/captcha-controller";
 import { removeLanguageSize } from "../utils/strings";
-// @ts-expect-error TODO: update slim-select
 import SlimSelect from "slim-select";
 import AnimatedModal, { ShowOptions } from "../utils/animated-modal";
 import { CharacterCounter } from "../elements/character-counter";
 import { QuoteReportReason } from "@monkeytype/contracts/schemas/quotes";
 
 type State = {
-  quoteToReport?: MonkeyTypes.Quote;
+  quoteToReport?: Quote;
   reasonSelect?: SlimSelect | undefined;
 };
 

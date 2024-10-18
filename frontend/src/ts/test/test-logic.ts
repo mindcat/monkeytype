@@ -6,7 +6,7 @@ import * as Strings from "../utils/strings";
 import * as Misc from "../utils/misc";
 import * as Arrays from "../utils/arrays";
 import * as JSONData from "../utils/json-data";
-import * as Numbers from "../utils/numbers";
+import * as Numbers from "@monkeytype/util/numbers";
 import * as Notifications from "../elements/notifications";
 import * as CustomText from "./custom-text";
 import * as CustomTextState from "../states/custom-text-name";
@@ -64,6 +64,7 @@ import {
   CompletedEvent,
   CustomTextDataWithTextLen,
 } from "@monkeytype/contracts/schemas/results";
+import * as XPBar from "../elements/xp-bar";
 
 let failReason = "";
 const koInputVisual = document.getElementById("koInputVisual") as HTMLElement;
@@ -74,7 +75,7 @@ export function clearNotSignedInResult(): void {
   notSignedInLastResult = null;
 }
 
-export function setNotSignedInUid(uid: string): void {
+export function setNotSignedInUidAndHash(uid: string): void {
   if (notSignedInLastResult === null) return;
   notSignedInLastResult.uid = uid;
   //@ts-expect-error
@@ -146,6 +147,7 @@ export function restart(options = {} as RestartOptions): void {
   };
 
   options = { ...defaultOptions, ...options };
+  const animationTime = options.noAnim ? 0 : Misc.applyReducedMotion(125);
 
   if (TestUI.testRestarting || TestUI.resultCalculating) {
     event?.preventDefault();
@@ -267,7 +269,7 @@ export function restart(options = {} as RestartOptions): void {
     if (Config.randomTheme !== "off") {
       void ThemeController.randomizeTheme();
     }
-    AccountButton.skipXpBreakdown();
+    void XPBar.skipBreakdown();
   }
 
   if (!ConnectionState.get()) {
@@ -289,7 +291,7 @@ export function restart(options = {} as RestartOptions): void {
     {
       opacity: 0,
     },
-    options.noAnim ? 0 : 125,
+    animationTime,
     async () => {
       $("#result").addClass("hidden");
       $("#typingTest").css("opacity", 0).removeClass("hidden");
@@ -350,7 +352,7 @@ export function restart(options = {} as RestartOptions): void {
           {
             opacity: 1,
           },
-          options.noAnim ? 0 : 125,
+          animationTime,
           () => {
             TimerProgress.reset();
             LiveSpeed.reset();
@@ -703,7 +705,7 @@ function buildCompletedEvent(
 
   const stddev = Numbers.stdDev(rawPerSecond);
   const avg = Numbers.mean(rawPerSecond);
-  let consistency = Numbers.roundTo2(Misc.kogasa(stddev / avg));
+  let consistency = Numbers.roundTo2(Numbers.kogasa(stddev / avg));
   let keyConsistencyArray = TestInput.keypressTimings.spacing.array.slice();
   if (keyConsistencyArray.length > 0) {
     keyConsistencyArray = keyConsistencyArray.slice(
@@ -712,7 +714,7 @@ function buildCompletedEvent(
     );
   }
   let keyConsistency = Numbers.roundTo2(
-    Misc.kogasa(
+    Numbers.kogasa(
       Numbers.stdDev(keyConsistencyArray) / Numbers.mean(keyConsistencyArray)
     )
   );
@@ -737,7 +739,7 @@ function buildCompletedEvent(
   //wpm consistency
   const stddev3 = Numbers.stdDev(chartData.wpm ?? []);
   const avg3 = Numbers.mean(chartData.wpm ?? []);
-  const wpmCons = Numbers.roundTo2(Misc.kogasa(stddev3 / avg3));
+  const wpmCons = Numbers.roundTo2(Numbers.kogasa(stddev3 / avg3));
   const wpmConsistency = isNaN(wpmCons) ? 0 : wpmCons;
 
   let customText: CustomTextDataWithTextLen | undefined = undefined;
@@ -897,7 +899,7 @@ export async function finish(difficultyFailed = false): Promise<void> {
     dontSave = true;
   }
 
-  const completedEvent = JSON.parse(JSON.stringify(ce)) as CompletedEvent;
+  const completedEvent = Misc.deepClone(ce) as CompletedEvent;
 
   ///////// completed event ready
 
@@ -1054,9 +1056,7 @@ export async function finish(difficultyFailed = false): Promise<void> {
 
   $("#result .stats .dailyLeaderboard").addClass("hidden");
 
-  TestStats.setLastResult(
-    JSON.parse(JSON.stringify(completedEvent)) as CompletedEvent
-  );
+  TestStats.setLastResult(Misc.deepClone(completedEvent));
 
   if (!ConnectionState.get()) {
     ConnectionState.showOfflineBanner();
@@ -1142,7 +1142,7 @@ async function saveResult(
 
   if (response.status !== 200) {
     //only allow retry if status is not in this list
-    if (![460, 461, 463, 464, 465].includes(response.status)) {
+    if (![460, 461, 463, 464, 465, 466].includes(response.status)) {
       retrySaving.canRetry = true;
       $("#retrySavingResultButton").removeClass("hidden");
       if (!isRetrying) {
@@ -1173,7 +1173,12 @@ async function saveResult(
 
   if (data.xp !== undefined) {
     const snapxp = DB.getSnapshot()?.xp ?? 0;
-    void AccountButton.updateXpBar(snapxp, data.xp, data.xpBreakdown);
+
+    void XPBar.update(
+      snapxp,
+      data.xp,
+      TestUI.resultVisible ? data.xpBreakdown : undefined
+    );
     DB.addXp(data.xp);
   }
 
@@ -1182,9 +1187,12 @@ async function saveResult(
   }
 
   if (data.insertedId !== undefined) {
-    const result: MonkeyTypes.FullResult<Mode> = JSON.parse(
-      JSON.stringify(completedEvent)
-    );
+    //TODO - this type cast was not needed before because we were using JSON cloning
+    // but now with the stronger types it shows that we are forcing completed event
+    // into a snapshot result - might not cuase issues but worth investigating
+    const result = Misc.deepClone(
+      completedEvent
+    ) as unknown as DB.SnapshotResult<Mode>;
     result._id = data.insertedId;
     if (data.isPb !== undefined && data.isPb) {
       result.isPb = true;
@@ -1260,7 +1268,7 @@ async function saveResult(
           // maxWidth: "10rem",
           opacity: 1,
         },
-        500
+        Misc.applyReducedMotion(500)
       );
     $("#result .stats .dailyLeaderboard .bottom").html(
       Format.rank(data.dailyLeaderboardRank, { fallback: "" })

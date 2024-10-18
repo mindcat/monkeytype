@@ -8,10 +8,14 @@ import {
 } from "@monkeytype/contracts/schemas/shared";
 import { Result as ResultType } from "@monkeytype/contracts/schemas/results";
 
+export type LbPersonalBests = {
+  time: Record<number, Record<string, PersonalBest>>;
+};
+
 type CheckAndUpdatePbResult = {
   isPb: boolean;
   personalBests: PersonalBests;
-  lbPersonalBests?: MonkeyTypes.LbPersonalBests;
+  lbPersonalBests?: LbPersonalBests;
 };
 
 type Result = Omit<ResultType<Mode>, "_id" | "name">;
@@ -35,7 +39,7 @@ export function canFunboxGetPb(result: Result): boolean {
 
 export function checkAndUpdatePb(
   userPersonalBests: PersonalBests,
-  lbPersonalBests: MonkeyTypes.LbPersonalBests | undefined,
+  lbPersonalBests: LbPersonalBests | undefined,
   result: Result
 ): CheckAndUpdatePbResult {
   const mode = result.mode;
@@ -55,11 +59,18 @@ export function checkAndUpdatePb(
     const didUpdate = updatePersonalBest(personalBestMatch, result);
     isPb = didUpdate;
   } else {
-    userPb[mode][mode2].push(buildPersonalBest(result));
+    (userPb[mode][mode2] as PersonalBest[]).push(buildPersonalBest(result));
   }
 
   if (!_.isNil(lbPersonalBests)) {
-    updateLeaderboardPersonalBests(userPb, lbPersonalBests, result);
+    const newLbPb = updateLeaderboardPersonalBests(
+      userPb,
+      lbPersonalBests,
+      result
+    );
+    if (newLbPb !== null) {
+      lbPersonalBests = newLbPb;
+    }
   }
 
   return {
@@ -165,47 +176,46 @@ function buildPersonalBest(result: Result): PersonalBest {
   };
 }
 
-function updateLeaderboardPersonalBests(
+export function updateLeaderboardPersonalBests(
   userPersonalBests: PersonalBests,
-  lbPersonalBests: MonkeyTypes.LbPersonalBests,
+  lbPersonalBests: LbPersonalBests,
   result: Result
-): void {
+): LbPersonalBests | null {
   if (!shouldUpdateLeaderboardPersonalBests(result)) {
-    return;
+    return null;
   }
+  const lbPb = lbPersonalBests ?? {};
+  const mode = result.mode as keyof typeof lbPb;
+  const mode2 = result.mode2 as unknown as keyof (typeof lbPb)[typeof mode];
+  lbPb[mode] ??= {};
+  lbPb[mode][mode2] ??= {};
 
-  const mode = result.mode;
-  const mode2 = result.mode2;
-
-  lbPersonalBests[mode] = lbPersonalBests[mode] ?? {};
-  const lbMode2 = lbPersonalBests[mode][mode2] as MonkeyTypes.LbPersonalBests;
-  if (lbMode2 === undefined || Array.isArray(lbMode2)) {
-    lbPersonalBests[mode][mode2] = {};
-  }
-
-  const bestForEveryLanguage = {};
-
-  userPersonalBests[mode][mode2].forEach((pb: PersonalBest) => {
-    const language = pb.language;
-    if (
-      bestForEveryLanguage[language] === undefined ||
-      bestForEveryLanguage[language].wpm < pb.wpm
-    ) {
-      bestForEveryLanguage[language] = pb;
+  const bestForEveryLanguage: Record<string, PersonalBest> = {};
+  (userPersonalBests[mode][mode2] as PersonalBest[]).forEach(
+    (pb: PersonalBest) => {
+      const language = pb.language;
+      if (
+        bestForEveryLanguage[language] === undefined ||
+        bestForEveryLanguage[language].wpm < pb.wpm
+      ) {
+        bestForEveryLanguage[language] = pb;
+      }
     }
-  });
-
+  );
   _.each(bestForEveryLanguage, (pb: PersonalBest, language: string) => {
-    const languageDoesNotExist =
-      lbPersonalBests[mode][mode2][language] === undefined;
+    const languageDoesNotExist = lbPb[mode][mode2]?.[language] === undefined;
+    const languageIsEmpty = _.isEmpty(lbPb[mode][mode2]?.[language]);
 
     if (
-      languageDoesNotExist ||
-      lbPersonalBests[mode][mode2][language].wpm < pb.wpm
+      (languageDoesNotExist ||
+        languageIsEmpty ||
+        (lbPb[mode][mode2]?.[language]?.wpm ?? 0) < pb.wpm) &&
+      lbPb[mode][mode2] !== undefined
     ) {
-      lbPersonalBests[mode][mode2][language] = pb;
+      lbPb[mode][mode2][language] = pb;
     }
   });
+  return lbPb;
 }
 
 function shouldUpdateLeaderboardPersonalBests(result: Result): boolean {

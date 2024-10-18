@@ -1,29 +1,7 @@
 import _ from "lodash";
-import { intersect } from "./misc";
 import { default as FunboxList } from "../constants/funbox-list";
 import { CompletedEvent } from "@monkeytype/contracts/schemas/results";
-
-export function inRange(value: number, min: number, max: number): boolean {
-  return value >= min && value <= max;
-}
-
-const VALID_NAME_PATTERN = /^[\da-zA-Z_-]+$/;
-
-export function isUsernameValid(name: string): boolean {
-  if (_.isNil(name) || !inRange(name.length, 1, 16)) {
-    return false;
-  }
-
-  return VALID_NAME_PATTERN.test(name);
-}
-
-export function isTagPresetNameValid(name: string): boolean {
-  if (_.isNil(name) || !inRange(name.length, 1, 16)) {
-    return false;
-  }
-
-  return VALID_NAME_PATTERN.test(name);
-}
+import { intersect } from "@monkeytype/util/arrays";
 
 export function isTestTooShort(result: CompletedEvent): boolean {
   const { mode, mode2, customText, testDuration, bailedOut } = result;
@@ -158,6 +136,10 @@ export function areFunboxesCompatible(funboxesString: string): boolean {
   const oneCharReplacerMax =
     funboxesToCheck.filter((f) => f.frontendFunctions?.includes("getWordHtml"))
       .length <= 1;
+  const oneChangesCapitalisationMax =
+    funboxesToCheck.filter((f) =>
+      f.properties?.find((fp) => fp === "changesCapitalisation")
+    ).length <= 1;
   const allowedConfig = {} as Record<string, string[] | boolean[]>;
   let noConfigConflicts = true;
   for (const f of funboxesToCheck) {
@@ -196,6 +178,7 @@ export function areFunboxesCompatible(funboxesString: string): boolean {
     onePunctuateWordMax &&
     oneCharCheckerMax &&
     oneCharReplacerMax &&
+    oneChangesCapitalisationMax &&
     noConfigConflicts &&
     oneWordOrderMax
   );

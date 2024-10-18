@@ -30,7 +30,7 @@ $((): void => {
     .css("opacity", "0")
     .removeClass("hidden")
     .stop(true, true)
-    .animate({ opacity: 1 }, 250);
+    .animate({ opacity: 1 }, Misc.applyReducedMotion(250));
   if (ConnectionState.get()) {
     void ServerConfiguration.sync().then(() => {
       if (!ServerConfiguration.get()?.users.signUp) {
@@ -43,6 +43,8 @@ $((): void => {
   }
   MonkeyPower.init();
 
+  // untyped, need to ignore
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   new Konami("https://keymash.io/");
 
   if (Misc.isDevEnvironment()) {

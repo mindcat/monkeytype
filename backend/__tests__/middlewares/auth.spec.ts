@@ -14,6 +14,7 @@ import {
   RequestAuthenticationOptions,
 } from "@monkeytype/contracts/schemas/api";
 import * as Prometheus from "../../src/utils/prometheus";
+import { TsRestRequestWithContext } from "../../src/api/types";
 
 const mockDecodedToken: DecodedIdToken = {
   uid: "123456789",
@@ -37,7 +38,7 @@ const mockApeKey = {
 vi.spyOn(ApeKeys, "getApeKey").mockResolvedValue(mockApeKey);
 vi.spyOn(ApeKeys, "updateLastUsedOn").mockResolvedValue();
 const isDevModeMock = vi.spyOn(Misc, "isDevEnvironment");
-let mockRequest: Partial<MonkeyTypes.Request>;
+let mockRequest: Partial<TsRestRequestWithContext>;
 let mockResponse: Partial<Response>;
 let nextFunction: NextFunction;
 
@@ -77,184 +78,6 @@ describe("middlewares/auth", () => {
 
   afterEach(() => {
     isDevModeMock.mockReset();
-  });
-
-  describe("authenticateRequest", () => {
-    it("should fail if token is not fresh", async () => {
-      Date.now = vi.fn(() => 60001);
-
-      const authenticateRequest = Auth.authenticateRequest({
-        requireFreshToken: true,
-      });
-
-      expect(() =>
-        authenticateRequest(
-          mockRequest as Request,
-          mockResponse as Response,
-          nextFunction
-        )
-      ).rejects.toThrowError(
-        "Unauthorized\nStack: This endpoint requires a fresh token"
-      );
-    });
-    it("should allow the request if token is fresh", async () => {
-      Date.now = vi.fn(() => 10000);
-
-      const authenticateRequest = Auth.authenticateRequest({
-        requireFreshToken: true,
-      });
-
-      await authenticateRequest(
-        mockRequest as Request,
-        mockResponse as Response,
-        nextFunction
-      );
-
-      const decodedToken = mockRequest?.ctx?.decodedToken;
-
-      expect(decodedToken?.type).toBe("Bearer");
-      expect(decodedToken?.email).toBe(mockDecodedToken.email);
-      expect(decodedToken?.uid).toBe(mockDecodedToken.uid);
-      expect(nextFunction).toHaveBeenCalledTimes(1);
-    });
-    it("should allow the request if apeKey is supported", async () => {
-      mockRequest.headers = {
-        authorization: "ApeKey aWQua2V5",
-      };
-
-      const authenticateRequest = Auth.authenticateRequest({
-        acceptApeKeys: true,
-      });
-
-      await authenticateRequest(
-        mockRequest as Request,
-        mockResponse as Response,
-        nextFunction
-      );
-
-      const decodedToken = mockRequest?.ctx?.decodedToken;
-
-      expect(decodedToken?.type).toBe("ApeKey");
-      expect(decodedToken?.email).toBe("");
-      expect(decodedToken?.uid).toBe("123");
-      expect(nextFunction).toHaveBeenCalledTimes(1);
-    });
-    it("should allow the request with authentation on public endpoint", async () => {
-      const authenticateRequest = Auth.authenticateRequest({
-        isPublic: true,
-      });
-
-      await authenticateRequest(
-        mockRequest as Request,
-        mockResponse as Response,
-        nextFunction
-      );
-
-      const decodedToken = mockRequest?.ctx?.decodedToken;
-      expect(decodedToken?.type).toBe("Bearer");
-      expect(decodedToken?.email).toBe(mockDecodedToken.email);
-      expect(decodedToken?.uid).toBe(mockDecodedToken.uid);
-      expect(nextFunction).toHaveBeenCalledTimes(1);
-    });
-    it("should allow the request without authentication on public endpoint", async () => {
-      mockRequest.headers = {};
-
-      const authenticateRequest = Auth.authenticateRequest({
-        isPublic: true,
-      });
-
-      await authenticateRequest(
-        mockRequest as Request,
-        mockResponse as Response,
-        nextFunction
-      );
-
-      const decodedToken = mockRequest?.ctx?.decodedToken;
-      expect(decodedToken?.type).toBe("None");
-      expect(decodedToken?.email).toBe("");
-      expect(decodedToken?.uid).toBe("");
-      expect(nextFunction).toHaveBeenCalledTimes(1);
-    });
-    it("should allow the request with apeKey on public endpoint", async () => {
-      mockRequest.headers = {
-        authorization: "ApeKey aWQua2V5",
-      };
-
-      const authenticateRequest = Auth.authenticateRequest({
-        isPublic: true,
-      });
-
-      await authenticateRequest(
-        mockRequest as Request,
-        mockResponse as Response,
-        nextFunction
-      );
-
-      const decodedToken = mockRequest?.ctx?.decodedToken;
-
-      expect(decodedToken?.type).toBe("ApeKey");
-      expect(decodedToken?.email).toBe("");
-      expect(decodedToken?.uid).toBe("123");
-      expect(nextFunction).toHaveBeenCalledTimes(1);
-    });
-    it("should allow request with Uid on dev", async () => {
-      mockRequest.headers = {
-        authorization: "Uid 123",
-      };
-
-      const authenticateRequest = Auth.authenticateRequest({});
-
-      await authenticateRequest(
-        mockRequest as Request,
-        mockResponse as Response,
-        nextFunction
-      );
-
-      const decodedToken = mockRequest?.ctx?.decodedToken;
-
-      expect(decodedToken?.type).toBe("Bearer");
-      expect(decodedToken?.email).toBe("");
-      expect(decodedToken?.uid).toBe("123");
-      expect(nextFunction).toHaveBeenCalledTimes(1);
-    });
-    it("should allow request with Uid and email on dev", async () => {
-      mockRequest.headers = {
-        authorization: "Uid 123|test@example.com",
-      };
-
-      const authenticateRequest = Auth.authenticateRequest({});
-
-      await authenticateRequest(
-        mockRequest as Request,
-        mockResponse as Response,
-        nextFunction
-      );
-
-      const decodedToken = mockRequest?.ctx?.decodedToken;
-
-      expect(decodedToken?.type).toBe("Bearer");
-      expect(decodedToken?.email).toBe("test@example.com");
-      expect(decodedToken?.uid).toBe("123");
-      expect(nextFunction).toHaveBeenCalledTimes(1);
-    });
-    it("should fail request with Uid on non-dev", async () => {
-      isDevModeMock.mockReturnValue(false);
-      mockRequest.headers = {
-        authorization: "Uid 123",
-      };
-
-      const authenticateRequest = Auth.authenticateRequest({});
-
-      await expect(() =>
-        authenticateRequest(
-          mockRequest as Request,
-          mockResponse as Response,
-          nextFunction
-        )
-      ).rejects.toThrow(
-        new MonkeyError(401, "Baerer type uid is not supported")
-      );
-    });
   });
 
   describe("authenticateTsRestRequest", () => {
@@ -731,7 +554,7 @@ describe("middlewares/auth", () => {
 async function authenticate(
   request: Partial<Request>,
   authenticationOptions?: RequestAuthenticationOptions
-): Promise<{ decodedToken: MonkeyTypes.DecodedToken }> {
+): Promise<{ decodedToken: Auth.DecodedToken }> {
   const mergedRequest = {
     ...mockRequest,
     ...request,

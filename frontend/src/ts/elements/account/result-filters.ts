@@ -6,7 +6,6 @@ import Config from "../../config";
 import * as Notifications from "../notifications";
 import Ape from "../../ape/index";
 import * as Loader from "../loader";
-// @ts-expect-error TODO: update slim-select
 import SlimSelect from "slim-select";
 import { QuoteLength } from "@monkeytype/contracts/schemas/configs";
 import {
@@ -166,16 +165,12 @@ export async function setFilterPreset(id: string): Promise<void> {
   ).addClass("active");
 }
 
-function deepCopyFilter(filter: ResultFilters): ResultFilters {
-  return JSON.parse(JSON.stringify(filter)) as ResultFilters;
-}
-
 function addFilterPresetToSnapshot(filter: ResultFilters): void {
   const snapshot = DB.getSnapshot();
   if (!snapshot) return;
   DB.setSnapshot({
     ...snapshot,
-    filterPresets: [...snapshot.filterPresets, deepCopyFilter(filter)],
+    filterPresets: [...snapshot.filterPresets, Misc.deepClone(filter)],
   });
 }
 
@@ -274,7 +269,7 @@ function setAllFilters(group: ResultFiltersGroup, value: boolean): void {
   });
 }
 
-export function loadTags(tags: MonkeyTypes.UserTag[]): void {
+export function loadTags(tags: DB.SnapshotUserTag[]): void {
   tags.forEach((tag) => {
     defaultResultFilters.tags[tag._id] = true;
   });
@@ -606,14 +601,14 @@ $(".pageAccount .topFilters button.currentConfigFilter").on("click", () => {
   filters.mode[Config.mode] = true;
   if (Config.mode === "time") {
     if ([15, 30, 60, 120].includes(Config.time)) {
-      const configTime = Config.time as MonkeyTypes.DefaultTimeModes;
+      const configTime = `${Config.time}` as keyof typeof filters.time;
       filters.time[configTime] = true;
     } else {
       filters.time.custom = true;
     }
   } else if (Config.mode === "words") {
     if ([10, 25, 50, 100, 200].includes(Config.words)) {
-      const configWords = Config.words as MonkeyTypes.DefaultWordsModes;
+      const configWords = `${Config.words}` as keyof typeof filters.words;
       filters.words[configWords] = true;
     } else {
       filters.words.custom = true;
@@ -789,16 +784,12 @@ export async function appendButtons(
         },
         events: {
           beforeChange: (
-            // @ts-expect-error TODO: update slim-select
             selectedOptions,
-            // @ts-expect-error TODO: update slim-select
             oldSelectedOptions
           ): void | boolean => {
             return selectBeforeChangeFn(
               "language",
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
               selectedOptions,
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
               oldSelectedOptions
             );
           },
@@ -850,16 +841,12 @@ export async function appendButtons(
         },
         events: {
           beforeChange: (
-            // @ts-expect-error TODO: update slim-select
             selectedOptions,
-            // @ts-expect-error TODO: update slim-select
             oldSelectedOptions
           ): void | boolean => {
             return selectBeforeChangeFn(
               "funbox",
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
               selectedOptions,
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
               oldSelectedOptions
             );
           },
@@ -907,16 +894,12 @@ export async function appendButtons(
         },
         events: {
           beforeChange: (
-            // @ts-expect-error TODO: update slim-select
             selectedOptions,
-            // @ts-expect-error TODO: update slim-select
             oldSelectedOptions
           ): void | boolean => {
             return selectBeforeChangeFn(
               "tags",
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
               selectedOptions,
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
               oldSelectedOptions
             );
           },
@@ -956,7 +939,7 @@ $(".group.presetFilterButtons .filterBtns").on(
 );
 
 function verifyResultFiltersStructure(filterIn: ResultFilters): ResultFilters {
-  const filter = deepCopyFilter(filterIn);
+  const filter = Misc.deepClone(filterIn);
   Object.entries(defaultResultFilters).forEach((entry) => {
     const key = entry[0] as ResultFiltersGroup;
     const value = entry[1];
